@@ -35,7 +35,7 @@ struct HealthSummary {
         defer { requesting = false; showConnectionResult = true }
         do {
             let read: Set<HKObjectType> = [HKQuantityType(.heartRate), HKCategoryType(.sleepAnalysis)]
-            let status = try await health.getRequestStatusForAuthorization(toShare: [], read: read)
+            let status = try await authorizationRequestStatus(read: read)
             try await health.requestAuthorization(toShare: [], read: read)
             requested = true
             UserDefaults.standard.set(true, forKey: "healthRequested")
@@ -62,6 +62,14 @@ struct HealthSummary {
                 guidance = "건강 데이터 권한 요청에 실패했습니다. 아래 오류 내용을 확인해 주세요."
             }
             message = guidance + "\n\n오류 상세\n" + detail
+        }
+    }
+    private func authorizationRequestStatus(read: Set<HKObjectType>) async throws -> HKAuthorizationRequestStatus {
+        try await withCheckedThrowingContinuation { continuation in
+            health.getRequestStatusForAuthorization(toShare: [], read: read) { status, error in
+                if let error { continuation.resume(throwing: error) }
+                else { continuation.resume(returning: status) }
+            }
         }
     }
     private func samples(type: HKSampleType, start: Date, end: Date) async throws -> [HKSample] {
