@@ -13,6 +13,9 @@ targets:
     type: application
     platform: iOS
     sources: [DoseFlow, Shared]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.DoseFlow
     info:
       path: DoseFlow/Info.plist
       properties:
@@ -32,6 +35,9 @@ targets:
     type: app-extension
     platform: iOS
     sources: [DoseFlowWidgets, Shared]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.DoseFlow.Widgets
     info:
       path: DoseFlowWidgets/Info.plist
       properties:

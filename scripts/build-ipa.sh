@@ -17,6 +17,7 @@ xcodebuild -project DoseFlow.xcodeproj -scheme DoseFlow -configuration Release \
 APP='build/DerivedData/Build/Products/Release-iphoneos/DoseFlow.app'
 test -f "$APP/DoseFlow"
 test -d "$APP/PlugIns/DoseFlowWidgets.appex"
+python3 scripts/verify-bundles.py "$APP"
 mkdir -p build/ipa/Payload
 # Preserve app resources and symlinks when packaging.
 ditto "$APP" build/ipa/Payload/DoseFlow.app
