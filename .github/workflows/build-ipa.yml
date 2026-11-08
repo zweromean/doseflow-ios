@@ -1,0 +1,37 @@
+name: Build iPhone IPA
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find project
+        id: project
+        shell: bash
+        run: |
+          if [ -f project.yml ]; then
+            echo 'directory=.' >> "$GITHUB_OUTPUT"
+          elif [ -f DoseFlow/project.yml ]; then
+            echo 'directory=DoseFlow' >> "$GITHUB_OUTPUT"
+          else
+            echo 'Upload the DoseFlow project files to this repository first.' >&2
+            exit 1
+          fi
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Build device app and package IPA
+        working-directory: ${{ steps.project.outputs.directory }}
+        run: bash scripts/build-ipa.sh
+      - name: Downloadable unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: DoseFlow-unsigned-IPA
+          path: ${{ steps.project.outputs.directory }}/build/DoseFlow-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 7

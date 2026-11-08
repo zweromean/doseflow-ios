@@ -1,0 +1,53 @@
+name: DoseFlow
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: '17.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    TARGETED_DEVICE_FAMILY: '1'
+    DEVELOPMENT_TEAM: ''
+targets:
+  DoseFlow:
+    type: application
+    platform: iOS
+    sources: [DoseFlow, Shared]
+    info:
+      path: DoseFlow/Info.plist
+      properties:
+        CFBundleDisplayName: 복약
+        UILaunchScreen: {}
+        NSSupportsLiveActivities: true
+        NSHealthShareUsageDescription: 복약 시간에 따른 심박 변화와 수면 기록을 확인하고 진료용 리포트에 포함하기 위해 건강 데이터를 읽습니다.
+    entitlements:
+      path: DoseFlow/DoseFlow.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.example.DoseFlow]
+        com.apple.developer.healthkit: true
+    dependencies:
+      - sdk: HealthKit.framework
+      - target: DoseFlowWidgets
+  DoseFlowWidgets:
+    type: app-extension
+    platform: iOS
+    sources: [DoseFlowWidgets, Shared]
+    info:
+      path: DoseFlowWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: 복약 위젯
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: DoseFlowWidgets/DoseFlowWidgets.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.example.DoseFlow]
+  DoseFlowTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [DoseFlowTests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: DoseFlow
