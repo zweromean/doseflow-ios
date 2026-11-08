@@ -22,19 +22,47 @@ struct HealthSummary {
     @Published var requesting = false
     @Published var message: String?
     @Published var revision = 0
+    @Published var showConnectionResult = false
     var available: Bool { HKHealthStore.isHealthDataAvailable() }
     func connect() async {
-        guard available else { message = "이 기기에서 건강 데이터를 사용할 수 없습니다."; return }
+        guard !requesting else { return }
+        guard available else {
+            message = "이 기기에서 건강 데이터를 사용할 수 없습니다."
+            showConnectionResult = true
+            return
+        }
         requesting = true
-        defer { requesting = false }
+        defer { requesting = false; showConnectionResult = true }
         do {
             let read: Set<HKObjectType> = [HKQuantityType(.heartRate), HKCategoryType(.sleepAnalysis)]
+            let status = try await health.getRequestStatusForAuthorization(toShare: [], read: read)
             try await health.requestAuthorization(toShare: [], read: read)
             requested = true
             UserDefaults.standard.set(true, forKey: "healthRequested")
-            message = "권한 요청을 완료했습니다. 허용된 건강 데이터가 있으면 표시됩니다."
+            if status == .unnecessary {
+                message = "추가 권한 요청이 필요하지 않아 권한 화면이 다시 표시되지 않을 수 있습니다. 읽기 허용 여부는 앱에서 알 수 없습니다. 건강 앱 → 프로필 → 개인정보 보호 → 앱에서 복약의 심박·수면 읽기 설정을 확인해 주세요. 앱이 목록에 없다면 아래 오류 여부와 설치에 사용한 서명 방식을 확인해 주세요."
+            } else {
+                message = "건강 데이터 권한 요청을 완료했습니다. 완료 자체가 읽기 허용을 의미하지는 않습니다. 허용한 항목에 실제 기록이 있으면 표시됩니다."
+            }
             revision += 1
-        } catch { message = "건강 데이터 연결 오류: \(error.localizedDescription)" }
+        } catch {
+            requested = false
+            UserDefaults.standard.set(false, forKey: "healthRequested")
+            let native = error as NSError
+            var detail = "\(native.domain) (\(native.code)): \(native.localizedDescription)"
+            if let reason = native.localizedFailureReason { detail += "\n\(reason)" }
+            if let underlying = native.userInfo[NSUnderlyingErrorKey] as? NSError {
+                detail += "\n\(underlying.domain) (\(underlying.code)): \(underlying.localizedDescription)"
+            }
+            let lower = detail.lowercased()
+            let guidance: String
+            if lower.contains("entitlement") || lower.contains("provision") {
+                guidance = "설치된 앱의 서명에서 HealthKit 권한을 사용할 수 없습니다. 서명과 프로비저닝 프로파일에 com.apple.developer.healthkit 권한이 허용되어야 합니다. IPA를 다시 빌드하는 것만으로 설치 도구의 서명 권한이 추가되지는 않습니다."
+            } else {
+                guidance = "건강 데이터 권한 요청에 실패했습니다. 아래 오류 내용을 확인해 주세요."
+            }
+            message = guidance + "\n\n오류 상세\n" + detail
+        }
     }
     private func samples(type: HKSampleType, start: Date, end: Date) async throws -> [HKSample] {
         try await withCheckedThrowingContinuation { continuation in
@@ -93,8 +121,9 @@ struct HealthSummary {
 struct HealthConnectionView: View {
     @EnvironmentObject var health: HealthStore
     var body: some View {
-        Button(health.requesting ? "권한 요청 중…" : health.requested ? "건강 접근 권한 다시 요청" : "건강 앱 연결") { Task { await health.connect() } }.disabled(health.requesting || !health.available)
-        if let message = health.message { Text(message).font(.caption).foregroundStyle(.secondary) }
+        Button(health.requesting ? "권한 요청 중…" : health.requested ? "건강 접근 권한 다시 요청" : "건강 앱 연결") { Task { await health.connect() } }.disabled(health.requesting)
+            .alert("건강 연결 결과", isPresented: $health.showConnectionResult) { Button("확인", role: .cancel) {} } message: { Text(health.message ?? "") }
+        if let message = health.message { Text(message).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
         Text("심박·수면을 읽기만 합니다. 데이터가 없거나 읽기 권한이 없으면 값이 표시되지 않습니다. 권한은 설정 앱의 건강 접근 항목에서 변경할 수 있습니다.").font(.caption).foregroundStyle(.secondary)
     }
 }
